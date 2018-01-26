@@ -129,29 +129,17 @@ class RaftStorage(path: String, raftServer: RaftServer) extends Storage {
   }
 
   private def truncate(begin: Long): Unit = {
-    def replyToClient(uid: Long): Unit = {
-      val lock = raftServer.clientReplies.get(uid)
-      if (lock != null) {
-        lock.synchronized{
-          lock.set(false)
-          lock.notify()
-        }
-      }
-    }
-
     val batch = new WriteBatchWithIndex()
     if (logLength - begin >= logCache.size) {
       logCache.foreach(logEntry => batch.remove(logEntry.uid.toByteArray))
       for (i <- begin until logLength - logCache.size) {
         val uid = log(i).uid
         batch.remove(uid.toByteArray)
-        replyToClient(uid)
       }
     } else {
       for (i <- begin until logLength) {
         val uid = log(i).uid
         batch.remove(uid.toByteArray)
-        replyToClient(uid)
       }
     }
     idDB.write(writeOptions, batch)

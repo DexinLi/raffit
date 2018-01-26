@@ -162,31 +162,25 @@ class RaftServer(cluster: Seq[String], val memberId: Int, dbPath: String) {
         Future(CommandResponse(leaderId = leaderId))
       } else {
         val log = LogEntry(term = currentTerm, command = command, uid = uid)
-        storage.addLog(log)
-        for (i <- 0 until serverNum) {
-          clients(i).sendAppendEntries(AppendEntries(term = currentTerm,
-            leaderId = memberId,
-            leaderCommit = commitIndex,
-            prevLogIndex = logLength,
-            prevLogTerm = lastTerm,
-            entries = Seq(log)))
-        }
+        val time = 500
         Future {
           val lock = Boxed(false)
           clientReplies.put(uid, lock)
+          leaderThread.appendEntry(log)
           lock.synchronized {
-            lock.wait()
+            lock.wait(time)
           }
           if (lock) {
-            CommandResponse(leaderId = leaderId, Some(ByteBuffer.wrap(Array())))
+            CommandResponse(leaderId = leaderId, Some(ByteBuffer.wrap("applied".getBytes)))
           } else {
-            CommandResponse(leaderId = leaderId)
+            CommandResponse(leaderId = leaderId, Some(ByteBuffer.wrap("out of time".getBytes)))
           }
         }
       }
     }
 
   }
+
   val server = Thrift.server.serveIface("localhost:9000", RaftServerImpl)
 
   val clientReplies = new ConcurrentHashMap[Long, Boxed[Boolean]]()
@@ -212,6 +206,7 @@ class RaftServer(cluster: Seq[String], val memberId: Int, dbPath: String) {
   def becomeFollower(): Unit = {
     if (state != ServerState.Follower) {
       state = ServerState.Follower
+      leaderId = -1
       followerThread.start()
     }
   }

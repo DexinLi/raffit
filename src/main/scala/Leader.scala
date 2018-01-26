@@ -1,5 +1,6 @@
-import Raft.rpc.thrift.{AppendEntriesResponse, AppendEntries, LogEntry}
+import Raft.rpc.thrift.{AppendEntries, AppendEntriesResponse, LogEntry}
 import RaftServer.ServerState
+import Util.Boxed
 import com.twitter.util.{Future, Return, Throw}
 
 import scala.collection.mutable.ArrayBuffer
@@ -20,20 +21,21 @@ class Leader(raftServer: RaftServer) extends Thread {
     valid
   }
 
-  val heartbeatLocks = ArrayBuffer.fill[Integer](serverNum)(0)
+  val heartbeatLocks = ArrayBuffer.fill[Boxed[Boolean]](serverNum)(Boxed(false))
   val heartbeatThreads = new ArrayBuffer[Thread](serverNum)
   for (i <- 0 until serverNum) {
     heartbeatThreads(i) = new Thread(() => {
       heartbeatLocks(i).synchronized {
         while (checkState) {
-          if (heartbeatLocks(i) == 0) {
+          if (!heartbeatLocks(i)) {
             try {
               raftServer.storageReadLock.lock()
-              sendAppendEntriesWithRetry(i, heartbeatAppendEntry)
+              val appendEntries = heartbeatAppendEntry
+              sendAppendEntriesWithRetry(i, appendEntries)
             } finally {
               raftServer.storageReadLock.unlock()
             }
-            heartbeatLocks(i) = 1
+            heartbeatLocks(i).set(false)
           }
           heartbeatLocks(i).wait(heartbeatTime)
         }
@@ -56,7 +58,23 @@ class Leader(raftServer: RaftServer) extends Thread {
     Math.max(x, limit).toInt
   }
 
-  def appendMoreEntries(i: Int, lastTerm: Long): Future[Unit] = {
+  def appendEntry(logEntry: LogEntry): Unit = {
+    raftServer.storageWriteLock.lock()
+    raftServer.storage.addLog(logEntry)
+    val entry = AppendEntries(
+      term = raftServer.currentTerm,
+      leaderId = raftServer.memberId,
+      leaderCommit = raftServer.commitIndex,
+      prevLogIndex = raftServer.logLength - 1,
+      prevLogTerm = raftServer.lastTerm,
+      entries = Seq(entry))
+    raftServer.storageWriteLock.unlock()
+    for (i <- 0 until serverNum) {
+      sendAppendEntriesWithRetry(i, entry)
+    }
+  }
+
+  protected def appendMoreEntries(i: Int, lastTerm: Long): Future[Unit] = {
     val client = raftServer.clients(i)
     var res: Future[Unit] = Future()
     raftServer.stateReadLock.lock()
@@ -82,6 +100,7 @@ class Leader(raftServer: RaftServer) extends Thread {
         res = client.sendAppendEntries(appendEntry).transform({
           case Throw(_) => sendAppendEntriesWithRetry(i, appendEntry)
           case Return(AppendEntriesResponse(term, false, _)) =>
+            raftServer.stateWriteLock.lock()
             raftServer.storageWriteLock.lock()
             val ct = raftServer.currentTerm
             val future = if (term > ct) {
@@ -92,6 +111,7 @@ class Leader(raftServer: RaftServer) extends Thread {
               appendMoreEntries(i, raftServer.log(begin - 1).term)
             }
             raftServer.storageWriteLock.unlock()
+            raftServer.stateWriteLock.unlock()
             future
           case Return(AppendEntriesResponse(_, true, index)) =>
             matchIndex(i) = index
@@ -118,7 +138,7 @@ class Leader(raftServer: RaftServer) extends Thread {
             }
         })
         heartbeatLocks(i).synchronized {
-          heartbeatLocks(i) = 1
+          heartbeatLocks(i).set(true)
           heartbeatLocks(i).notify()
         }
       } else {
@@ -129,20 +149,22 @@ class Leader(raftServer: RaftServer) extends Thread {
     res
   }
 
-  def sendAppendEntriesWithRetry(i: Int, appendEntries: AppendEntries): Future[Unit] = {
+  protected def sendAppendEntriesWithRetry(i: Int, appendEntries: AppendEntries): Future[Unit] = {
     val client = raftServer.clients(i)
     var res = Future()
-    raftServer.stateWriteLock.lock()
+    raftServer.stateReadLock.lock()
     if (raftServer.state == ServerState.Leader) {
       res = client.sendAppendEntries(appendEntries).transform({
         case Throw(_) => sendAppendEntriesWithRetry(i, appendEntries)
         case Return(AppendEntriesResponse(term, false, _)) =>
+          raftServer.stateWriteLock.lock()
           raftServer.storageWriteLock.lock()
           val ct = raftServer.currentTerm
           if (term > ct) {
             raftServer.currentTerm = term
             raftServer.becomeFollower()
             raftServer.storageWriteLock.unlock()
+            raftServer.stateWriteLock.unlock()
             Future()
           } else {
             appendMoreEntries(i, term)
@@ -172,11 +194,11 @@ class Leader(raftServer: RaftServer) extends Thread {
 
       })
       heartbeatLocks(i).synchronized {
-        heartbeatLocks(i) = 1
+        heartbeatLocks(i).set(true)
       }
       heartbeatLocks(i).notify()
     }
-    raftServer.stateWriteLock.unlock()
+    raftServer.stateReadLock.unlock()
     res
   }
 
