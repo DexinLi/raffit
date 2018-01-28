@@ -1,8 +1,9 @@
+package raffit
+
 import java.util.concurrent.atomic.AtomicInteger
 
 import Raft.rpc.thrift.{RequestVote, RequestVoteResponse}
-import RaftServer.ServerState
-import com.twitter.util.Throw
+import raffit.RaftServer.ServerState
 
 import scala.util.Random
 

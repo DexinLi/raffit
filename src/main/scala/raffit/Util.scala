@@ -1,12 +1,8 @@
+package raffit
+
 import scala.reflect.ClassTag
 
 object Util {
-
-  implicit class Long2Int(x: Long) {
-    def clip(): Int = {
-      (x % (1 << 30)).toInt
-    }
-  }
 
   def binarySearch(begin: Long, end: Long, predicate: Long => Boolean): Long = {
     var b = begin

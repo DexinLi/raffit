@@ -1,6 +1,6 @@
-import Raft.rpc.thrift.LogEntry
+package raffit
 
-import scala.collection.mutable.ArrayBuffer
+import Raft.rpc.thrift.LogEntry
 
 trait Storage {
   protected var term: Long = 0L

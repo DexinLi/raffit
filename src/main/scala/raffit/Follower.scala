@@ -1,6 +1,6 @@
-import Raft.rpc.thrift.{AppendEntriesResponse, AppendEntries}
-import RaftServer.ServerState
-import com.twitter.util.Future
+package raffit
+
+import raffit.RaftServer.ServerState
 
 class Follower(raftServer: RaftServer) extends Thread {
   val electionTimeout = 500

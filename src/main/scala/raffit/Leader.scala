@@ -1,7 +1,9 @@
+package raffit
+
 import Raft.rpc.thrift.{AppendEntries, AppendEntriesResponse, LogEntry}
-import RaftServer.ServerState
-import Util.Boxed
 import com.twitter.util.{Future, Return, Throw}
+import raffit.RaftServer.ServerState
+import raffit.Util.Boxed
 
 import scala.collection.mutable.ArrayBuffer
 

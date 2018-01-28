@@ -1,13 +1,15 @@
+package raffit
+
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock.{ReadLock, WriteLock}
 
 import Raft.rpc.thrift._
-import RaftServer.ServerState
-import Util.Boxed
 import com.twitter.finagle.Thrift
 import com.twitter.util.Future
+import raffit.RaftServer.ServerState
+import raffit.Util.Boxed
 
 object RaftServer {
 
@@ -122,10 +124,6 @@ class RaftServer(cluster: Seq[String], val memberId: Int, dbPath: String) {
 
     override def sendRequestVote(requestVote: RequestVote): Future[RequestVoteResponse] = {
       def impl: RequestVoteResponse = {
-        //        stateLock.synchronized {
-        //          if (state == ServerState.Leader)
-        //            return RequestVoteResponse(currentTerm = currentTerm, granted = false)
-        //        }
         storageWriteLock.lock()
         val response = if (currentTerm > requestVote.term) {
           RequestVoteResponse(currentTerm = currentTerm, granted = false)
@@ -181,7 +179,7 @@ class RaftServer(cluster: Seq[String], val memberId: Int, dbPath: String) {
 
   }
 
-  val server = Thrift.server.serveIface("localhost:9000", RaftServerImpl)
+  val server = Thrift.server.serveIface(cluster.head, RaftServerImpl)
 
   val clientReplies = new ConcurrentHashMap[Long, Boxed[Boolean]]()
 

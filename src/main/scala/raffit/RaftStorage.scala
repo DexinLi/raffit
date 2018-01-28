@@ -1,12 +1,14 @@
+package raffit
+
 import java.io.File
 import java.util
 
 import Raft.rpc.thrift.LogEntry
-import Util.CircularFifoQueue
 import com.google.common.primitives.{Ints, Longs}
 import com.twitter.scrooge.TArrayByteTransport
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.rocksdb.{Options, RocksDB, WriteBatchWithIndex, WriteOptions}
+import raffit.Util.CircularFifoQueue
 
 import scala.collection.mutable.ArrayBuffer
 
