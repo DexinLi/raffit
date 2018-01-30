@@ -196,13 +196,8 @@ object Util {
     }
   }
 
-  class Boxed[T: ClassTag](var value: T) {
+  final class Boxed[T: ClassTag](var value: T) {
     def set(v: T): Unit = value = v
-
-    def ==(v: T): Boolean = value == v
-
-    def !=(v: T): Boolean = value != v
-
   }
 
   object Boxed {

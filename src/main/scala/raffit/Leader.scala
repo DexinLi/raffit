@@ -69,7 +69,7 @@ class Leader(raftServer: RaftServer) extends Thread {
       leaderCommit = raftServer.commitIndex,
       prevLogIndex = raftServer.logLength - 1,
       prevLogTerm = raftServer.lastTerm,
-      entries = Seq(entry))
+      entries = Seq(logEntry))
     raftServer.storageWriteLock.unlock()
     for (i <- 0 until serverNum) {
       sendAppendEntriesWithRetry(i, entry)
@@ -87,7 +87,7 @@ class Leader(raftServer: RaftServer) extends Thread {
         val begin = Util.binarySearch(0, end, raftServer.log(_).term < lastTerm)
         nextIndex(i) = begin
         val length = clip(raftServer.logLength - begin)
-        val logEntries = new Array[LogEntry](length)
+        val logEntries = new ArrayBuffer[LogEntry](length)
         for (i <- 0 until length) {
           logEntries(i) = raftServer.log(begin + i)
         }
