@@ -196,14 +196,14 @@ object Util {
     }
   }
 
-  final class Boxed[T: ClassTag](var value: T) {
+  final class Boxed[T <: AnyVal](var value: T) {
     def set(v: T): Unit = value = v
   }
 
   object Boxed {
-    implicit def boxed2Value[T: ClassTag](boxed: Boxed[T]): T = boxed.value
+    implicit def boxed2Value[T <: AnyVal](boxed: Boxed[T]): T = boxed.value
 
-    def apply[T: ClassTag](v: T): Boxed[T] = new Boxed(v)
+    def apply[T <: AnyVal](v: T): Boxed[T] = new Boxed(v)
   }
 
 
