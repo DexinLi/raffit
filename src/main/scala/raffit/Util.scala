@@ -24,11 +24,11 @@ object Util {
     * @param capacity the size of the queue (cannot be changed)
     * @throws IllegalArgumentException if the size is &lt; 1
     */
-  class CircularFifoQueue[E](val capacity: Int = 32) {
+  class CircularFifoQueue[E: ClassTag](val capacity: Int = 32) {
     if (capacity <= 0)
       throw new IllegalArgumentException("The size must be greater than 0")
     /** Underlying storage array. */
-    private val elements = new Array[Any](capacity)
+    private val elements = new Array[AnyRef](capacity)
     /** Array index of first (oldest) queue element. */
     private var start = 0
     /**
@@ -121,7 +121,7 @@ object Util {
       elements({
         end += 1
         end - 1
-      }) = element.asInstanceOf[Any]
+      }) = element.asInstanceOf[AnyRef]
       if (end >= maxElements) end = 0
       if (end == start) full = true
     }
@@ -130,7 +130,7 @@ object Util {
       if (elements.lengthCompare(capacity) >= 0) {
         val begin = elements.length - capacity
         for (i <- 0 until capacity) {
-          this.elements(i) = elements(begin + i).asInstanceOf[Any]
+          this.elements(i) = elements(begin + i).asInstanceOf[AnyRef]
           start = 0
           end = 0
           full = true
@@ -160,7 +160,7 @@ object Util {
       val sz = size
       if (index < 0 || index >= sz) throw new NoSuchElementException(s"The specified index $index is outside the available range [0, $sz)")
       val idx = (start + index) % maxElements
-      elements(idx) = x.asInstanceOf[Any]
+      elements(idx) = x.asInstanceOf[AnyRef]
     }
 
     def head: E = {
