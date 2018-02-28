@@ -116,7 +116,7 @@ class RaftServer(cluster: Seq[String], val memberId: Int, dbPath: String) {
           receiveLock.notify()
           appendEntriesResponse
         }
-        return response
+        response
       }
 
       Future(impl())
