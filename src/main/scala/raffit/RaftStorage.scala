@@ -177,6 +177,4 @@ class RaftStorage(path: String, raftServer: RaftServer) extends Storage {
     logCache ++= logEntries
     fieldDB.put("logLength".getBytes, logCache.size.toLong.toByteArray)
   }
-
-
 }
