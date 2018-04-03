@@ -15,19 +15,17 @@ class RaftClient(private var cluster: Seq[String]) {
   private var raftLeaderId = 0
   private var client = newClient(cluster.head)
 
-  def sendCommand[T](command: ByteBuffer, uid: Long, handler: ByteBuffer => T): Future[T] = {
+  def sendCommand[T](command: ByteBuffer, uid: Long): Future[T] = {
     client.sendCommand(command, uid).transform({
-      case Throw(_) => sendCommand(command, uid, handler)
-      case Return(CommandResponse(leaderId, None)) =>
+      case Throw(_) => sendCommand(command, uid)
+      case Return(CommandResponse(leaderId)) =>
         if (leaderId < 0) {
           raftLeaderId = (1 + raftLeaderId) % cluster.size
         } else {
           raftLeaderId = leaderId
         }
         client = newClient(cluster(raftLeaderId))
-        sendCommand(command, uid, handler)
-      case Return(CommandResponse(_, Some(buffer))) =>
-        Future(handler(buffer))
+        sendCommand(command, uid)
     })
   }
 }

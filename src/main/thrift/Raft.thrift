@@ -63,7 +63,7 @@ struct LeaderResponse {
 
 struct CommandResponse {
   1: required i32 leaderId;
-  2: optional binary response;
+//  2: optional binary response;
 }
 
 service RaftService {

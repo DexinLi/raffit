@@ -1,7 +1,6 @@
 package raffit
 
 import java.nio.ByteBuffer
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock.{ReadLock, WriteLock}
 
@@ -9,7 +8,6 @@ import Raft.rpc.thrift._
 import com.twitter.finagle.Thrift
 import com.twitter.util.Future
 import raffit.RaftServer.ServerState
-import raffit.Util.Boxed
 
 object RaftServer {
 
@@ -149,39 +147,23 @@ class RaftServer(cluster: Seq[String], val memberId: Int, dbPath: String) {
     }
 
     override def sendCommand(command: ByteBuffer, uid: Long): Future[CommandResponse] = {
-      def checkState: Boolean = {
-        stateReadLock.lock()
-        val valid = state == ServerState.Leader
-        stateReadLock.unlock()
-        valid
-      }
-
-      if (!checkState) {
+      stateReadLock.lock()
+      val ret = if (state != ServerState.Leader) {
         Future(CommandResponse(leaderId = leaderId))
       } else {
         val log = LogEntry(term = currentTerm, command = command, uid = uid)
-        val time = 500
         Future {
-          val lock = Boxed(false)
-          clientReplies.put(uid, lock)
           leaderThread.appendEntry(log)
-          lock.synchronized {
-            lock.wait(time)
-          }
-          if (lock) {
-            CommandResponse(leaderId = leaderId, Some(ByteBuffer.wrap("applied".getBytes)))
-          } else {
-            CommandResponse(leaderId = leaderId, Some(ByteBuffer.wrap("out of time".getBytes)))
-          }
+          CommandResponse(leaderId)
         }
       }
+      stateReadLock.unlock()
+      ret
     }
 
   }
 
   val server = Thrift.server.serveIface(cluster.head, RaftServerImpl)
-
-  val clientReplies = new ConcurrentHashMap[Long, Boxed[Boolean]]()
 
   def log(i: Long): LogEntry = storage.log(i)
 
