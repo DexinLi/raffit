@@ -119,11 +119,11 @@ class Leader(raftServer: RaftServer) extends Thread {
             matchIndex(i) = index
             var future = Future()
             heartbeatLocks(i).synchronized {
-              while (nextIndex(i) > matchIndex(i)) {
+              if (nextIndex(i) > matchIndex(i)) {
                 raftServer.storageReadLock.lock()
                 try {
-                  val logs = for (i <- index + 1 until raftServer.logLength)
-                    yield raftServer.log(i)
+                  val logs = for (j <- index + 1 until raftServer.logLength)
+                    yield raftServer.log(j)
                   future = sendAppendEntriesWithRetry(i,
                     AppendEntries(
                       term = raftServer.currentTerm,
@@ -175,7 +175,7 @@ class Leader(raftServer: RaftServer) extends Thread {
           matchIndex(i) = index
           var future = Future()
           heartbeatLocks(i).synchronized {
-            while (nextIndex(i) > matchIndex(i)) {
+            if (nextIndex(i) > matchIndex(i)) {
               raftServer.storageReadLock.lock()
               try {
                 val logs = for (i <- index + 1 until raftServer.logLength) yield raftServer.log(i)
